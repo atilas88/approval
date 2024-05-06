@@ -20,6 +20,7 @@ use OCP\AppFramework\Http\DataResponse;
 use OCP\AppFramework\OCSController;
 use OCP\IRequest;
 
+
 class ApprovalController extends OCSController {
 
 	public function __construct(
@@ -54,6 +55,7 @@ class ApprovalController extends OCSController {
 		if ($state['state'] !== Application::STATE_NOTHING) {
 			// who did that?
 			$stateToLookFor = $state['state'] === Application::STATE_APPROVABLE ? Application::STATE_PENDING : $state['state'];
+			
 			$activity = $this->ruleService->getLastAction($fileId, $state['rule']['id'], $stateToLookFor);
 			if (!is_null($activity)) {
 				$state['userId'] = $activity['userId'];
@@ -107,8 +109,8 @@ class ApprovalController extends OCSController {
 	 * @return DataResponse
 	 */
 	#[NoAdminRequired]
-	public function request(int $fileId, int $ruleId, bool $createShares): DataResponse {
-		$result = $this->approvalService->request($fileId, $ruleId, $this->userId, $createShares);
+	public function request(int $fileId, int $ruleId, bool $createShares, array $listApprovers): DataResponse {
+		$result = $this->approvalService->request($fileId, $ruleId, $this->userId, $createShares ,$listApprovers);
 		if (isset($result['error'])) {
 			return new DataResponse($result, 400);
 		} else {

@@ -11,7 +11,7 @@
 				:key="r.id"
 				:class="{ 'rule-selected': selectedRule === r.id }"
 				:for="'rule-' + r.id">
-				<div>
+				<div class="inside-label">
 					<input :id="'rule-' + r.id"
 						v-model="selectedRule"
 						name="approval-rule"
@@ -21,7 +21,15 @@
 						{{ r.description }}
 					</span>
 				</div>
-				<div class="approvers">
+				<div v-if="r.set_user_approvers === true" class="search-approvers">
+					<MultiselectWho
+						class="approval-user-input"
+						:value="listApprovals"
+						:limit="2"
+						:placeholder="t('approval', 'Who can approve?')"
+						@update:value="getUsers($event)" />
+				</div>
+				<div v-else class="inside-label approvers">
 					<span>
 						{{ approversLabel }}
 					</span>
@@ -43,8 +51,8 @@
 			<div class="spacer" />
 			<NcButton
 				type="primary"
-				:disabled="!selectedRule"
-				@click="$emit('request', selectedRule, true)">
+				:disabled="!canEnableRequestBtn()"
+				@click="$emit('request', selectedRule, true, listApprovals)">
 				<template #icon>
 					<CheckIcon :size="20" />
 				</template>
@@ -60,6 +68,8 @@ import CheckIcon from 'vue-material-design-icons/Check.vue'
 import NcUserBubble from '@nextcloud/vue/dist/Components/NcUserBubble.js'
 import NcButton from '@nextcloud/vue/dist/Components/NcButton.js'
 
+import MultiselectWho from './MultiselectWho.vue'
+
 export default {
 	name: 'RequestForm',
 
@@ -67,6 +77,7 @@ export default {
 		NcUserBubble,
 		NcButton,
 		CheckIcon,
+		MultiselectWho,
 	},
 
 	props: {
@@ -85,6 +96,7 @@ export default {
 			createShares: false,
 			createShareHint: t('approval', 'File will be automatically shared with everybody allowed to approve.'),
 			approversLabel: t('approval', 'Can be approved by'),
+			listApprovals: [],
 		}
 	},
 
@@ -108,6 +120,25 @@ export default {
 				return 'icon-circle'
 			}
 			return undefined
+		},
+		getUsers(value) {
+			this.listApprovals = value
+		},
+		getSelectedRuleFlag() {
+			const currentRule = this.rules.find(r => r.id === this.selectedRule)
+			const newRuleObject = { ...currentRule }
+			return newRuleObject.set_user_approvers
+		},
+		canEnableRequestBtn() {
+			if (this.selectedRule) {
+				if (this.getSelectedRuleFlag() && this.listApprovals.length > 0) {
+					return true
+				} else if (!this.getSelectedRuleFlag()) {
+					return true
+				} else {
+					return false
+				}
+			}
 		},
 	},
 }
@@ -139,7 +170,7 @@ export default {
 				background-color: var(--color-background-hover);
 				border-radius: var(--border-radius-large);
 			}
-			div {
+			.inside-label {
 				display: flex;
 				align-items: center;
 				&.approvers {
@@ -172,11 +203,15 @@ export default {
 	.footer {
 		display: flex;
 		align-items: center;
-		margin-top: 16px;
+		margin-top: 70px;
 		.spacer {
 			flex-grow: 1;
 		}
 	}
+}
+
+.approval-user-input {
+	width: 250px;
 }
 
 :deep(.user-bubble) {

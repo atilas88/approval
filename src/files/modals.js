@@ -15,8 +15,8 @@ export function createRequestModal() {
 	OCA.Approval.RequestModalVue.$on('close', () => {
 		console.debug('[Approval] modal closed')
 	})
-	OCA.Approval.RequestModalVue.$on('request', (node, ruleId, createShares) => {
-		requestApproval(node, ruleId, createShares)
+	OCA.Approval.RequestModalVue.$on('request', (node, ruleId, createShares, listApprovals) => {
+		requestApproval(node, ruleId, createShares, listApprovals)
 	})
 }
 

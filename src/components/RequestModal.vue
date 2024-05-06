@@ -59,9 +59,9 @@ export default {
 		setNode(node) {
 			this.node = node
 		},
-		onRequest(ruleId, createShares) {
+		onRequest(ruleId, createShares, listApprovals) {
 			this.closeModal()
-			this.$emit('request', this.node, ruleId, createShares)
+			this.$emit('request', this.node, ruleId, createShares, listApprovals)
 			// this.requesting = true
 		},
 	},

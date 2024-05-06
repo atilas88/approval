@@ -62,6 +62,7 @@ class ConfigController extends Controller {
 		}
 
 		$rules = $this->ruleService->getRules();
+		
 		foreach ($rules as $id => $rule) {
 			foreach ($rule['approvers'] as $k => $elem) {
 				if ($elem['type'] === 'user') {
@@ -116,8 +117,8 @@ class ConfigController extends Controller {
 	 * @return DataResponse
 	 */
 	public function createRule(int $tagPending, int $tagApproved, int $tagRejected,
-		array $approvers, array $requesters, string $description): DataResponse {
-		$result = $this->ruleService->createRule($tagPending, $tagApproved, $tagRejected, $approvers, $requesters, $description);
+		array $approvers, array $requesters, string $description, bool $set_user_approvers): DataResponse {
+		$result = $this->ruleService->createRule($tagPending, $tagApproved, $tagRejected, $approvers, $requesters, $description, $set_user_approvers);
 		return isset($result['error'])
 			? new DataResponse($result, 400)
 			: new DataResponse($result['id']);
@@ -134,8 +135,8 @@ class ConfigController extends Controller {
 	 * @return DataResponse
 	 */
 	public function saveRule(int $id, int $tagPending, int $tagApproved, int $tagRejected,
-		array $approvers, array $requesters, string $description): DataResponse {
-		$result = $this->ruleService->saveRule($id, $tagPending, $tagApproved, $tagRejected, $approvers, $requesters, $description);
+		array $approvers, array $requesters, string $description, bool $set_user_approvers): DataResponse {
+		$result = $this->ruleService->saveRule($id, $tagPending, $tagApproved, $tagRejected, $approvers, $requesters, $description, $set_user_approvers);
 		return isset($result['error'])
 			? new DataResponse($result, 400)
 			: new DataResponse($result['id']);

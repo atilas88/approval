@@ -41,6 +41,7 @@
 				:disable-tooltip="true"
 				:show-user-status="false" />
 			<span class="multiselect-name">
+				<!--Here goes selected item -->
 				{{ option.displayName }}
 			</span>
 			<span :class="{ icon: true, ['icon-' + option.type]: true, 'multiselect-icon': true }" />
@@ -258,6 +259,7 @@ export default {
 		flex-grow: 1;
 		margin-left: 10px;
 		overflow: hidden;
+		white-space: nowrap; // This property is used to accumulate all the white space into one and does not let the line go to the next one,
 		text-overflow: ellipsis;
 	}
 	.multiselect-icon {

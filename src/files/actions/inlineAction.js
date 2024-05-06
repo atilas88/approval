@@ -3,7 +3,7 @@ import ApprovedIconSvg from '../../../img/checkmark-green.svg'
 import RejectedIconSvg from '../../../img/close-red.svg'
 import { Permission, FileAction } from '@nextcloud/files'
 import { states } from '../../states.js'
-import { openApprovalInfoModal, updateNodeApprovalState } from '../helpers.js'
+import { openApprovalInfoModal, updateNodeApprovalState, getApprovalState } from '../helpers.js'
 
 export const inlineAction = new FileAction({
 	id: 'approval-inline',
@@ -38,7 +38,10 @@ export const inlineAction = new FileAction({
 	},
 	inline: () => true,
 	exec: async (node) => {
-		await updateNodeApprovalState(node)
+		const respState = await getApprovalState(node)
+		const statusCode = respState.data.ocs.data.state
+		const st = (node.attributes['approval-state'] === 1 && statusCode > 3) ? 1 : -1
+		await updateNodeApprovalState(node, st)
 		await openApprovalInfoModal(node)
 		return null
 	},

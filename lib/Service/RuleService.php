@@ -110,7 +110,7 @@ class RuleService {
 	 * @throws \OCP\DB\Exception
 	 */
 	public function saveRule(int $id, int $tagPending, int $tagApproved, int $tagRejected,
-		array $approvers, array $requesters, string $description): array {
+		array $approvers, array $requesters, string $description, $set_user_approvers = false): array {
 		$this->cachedRules = null;
 		if (!$this->isValid($tagPending, $tagApproved, $tagRejected)) {
 			return ['error' => 'Invalid rule'];
@@ -118,7 +118,6 @@ class RuleService {
 		if ($this->hasConflict($id, $tagPending)) {
 			return ['error' => 'Rule conflict'];
 		}
-
 		$qb = $this->db->getQueryBuilder();
 
 		$qb->update('approval_rules');
@@ -126,6 +125,8 @@ class RuleService {
 		$qb->set('tag_approved', $qb->createNamedParameter($tagApproved, IQueryBuilder::PARAM_INT));
 		$qb->set('tag_rejected', $qb->createNamedParameter($tagRejected, IQueryBuilder::PARAM_INT));
 		$qb->set('description', $qb->createNamedParameter($description, IQueryBuilder::PARAM_STR));
+		// option to establish that users can select who can a
+		$qb->set('set_user_approvers', $qb->createNamedParameter($set_user_approvers, IQueryBuilder::PARAM_BOOL));
 		$qb->where(
 			$qb->expr()->eq('id', $qb->createNamedParameter($id, IQueryBuilder::PARAM_INT))
 		);
@@ -218,7 +219,7 @@ class RuleService {
 	 * @return array id of created rule or error string
 	 */
 	public function createRule(int $tagPending, int $tagApproved, int $tagRejected,
-		array $approvers, array $requesters, string $description): array {
+		array $approvers, array $requesters, string $description, $set_user_approvers = false): array {
 		$this->cachedRules = null;
 		if (!$this->isValid($tagPending, $tagApproved, $tagRejected)) {
 			return ['error' => 'Rule is invalid'];
@@ -235,6 +236,7 @@ class RuleService {
 				'tag_approved' => $qb->createNamedParameter($tagApproved, IQueryBuilder::PARAM_INT),
 				'tag_rejected' => $qb->createNamedParameter($tagRejected, IQueryBuilder::PARAM_INT),
 				'description' => $qb->createNamedParameter($description, IQueryBuilder::PARAM_STR),
+				'set_user_approvers' => $qb->createNamedParameter($set_user_approvers, IQueryBuilder::PARAM_BOOL)
 			]);
 		$qb->executeStatement();
 		$qb = $qb->resetQueryParts();
@@ -330,6 +332,7 @@ class RuleService {
 			$tagApproved = (int) $row['tag_approved'];
 			$tagRejected = (int) $row['tag_rejected'];
 			$description = $row['description'];
+			$set_user_approvers = (bool)$row['set_user_approvers'];
 			$rule = [
 				'id' => $id,
 				'tagPending' => $tagPending,
@@ -338,6 +341,7 @@ class RuleService {
 				'description' => $description,
 				'approvers' => [],
 				'requesters' => [],
+				'set_user_approvers' => $set_user_approvers,
 			];
 			break;
 		}
@@ -373,6 +377,7 @@ class RuleService {
 				$tagApproved = (int)$row['tag_approved'];
 				$tagRejected = (int)$row['tag_rejected'];
 				$description = $row['description'];
+				$set_user_approvers = (bool)$row['set_user_approvers'];
 				$rules[$id] = [
 					'id' => $id,
 					'tagPending' => $tagPending,
@@ -381,6 +386,7 @@ class RuleService {
 					'description' => $description,
 					'approvers' => [],
 					'requesters' => [],
+					'set_user_approvers' => $set_user_approvers,
 				];
 			}
 			$req->closeCursor();

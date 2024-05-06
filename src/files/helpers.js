@@ -9,10 +9,10 @@ export async function getApprovalState(node) {
 	return await axios.get(url)
 }
 
-export async function updateNodeApprovalState(node) {
+export async function updateNodeApprovalState(node, st = -1) {
 	try {
 		const response = await getApprovalState(node)
-		const state = response.data.ocs.data.state
+		const state = st > -1 ? st : response.data.ocs.data.state
 		vueSet(node.attributes, 'approval-state', state)
 		vueSet(node.attributes, 'approval-rule', response.data.ocs.data.rule)
 		vueSet(node.attributes, 'approval-timestamp', response.data.ocs.data.timestamp)
@@ -27,23 +27,33 @@ export async function updateNodeApprovalState(node) {
 	}
 }
 
-export async function requestApproval(node, ruleId, createShares) {
+export async function requestApproval(node, ruleId, createShares, listApprovals) {
+	// console.debug('ATTRIBUTES:', node.attributes)
 	const fileId = node.fileid
 	const fileName = node.basename
+
+	vueSet(node.attributes, 'approval-state', 1) // Force state 1 for requests
+	const listApprovers = listApprovals.map((u) => {
+		return {
+			type: u.type,
+			entityId: u.entityId,
+		}
+	})
 	const req = {
 		createShares,
+		listApprovers,
 	}
 	const url = generateOcsUrl('apps/approval/api/v1/request/{fileId}/{ruleId}', { fileId, ruleId })
 	try {
 		const response = await axios.post(url, req)
 		if (createShares) {
-			await requestAfterShareCreation(node, ruleId)
+			await requestAfterShareCreation(node, ruleId, listApprovers)
 		} else {
 			showSuccess(t('approval', 'Approval requested for {name}', { name: fileName }))
 			if (response.data?.ocs?.data?.warning) {
 				showWarning(t('approval', 'Warning') + ': ' + response.data.ocs.data.warning)
 			}
-			await updateNodeApprovalState(node)
+			await updateNodeApprovalState(node, 1)
 			// TODO
 			// reloadTags()
 		}
@@ -56,11 +66,12 @@ export async function requestApproval(node, ruleId, createShares) {
 	}
 }
 
-export async function requestAfterShareCreation(node, ruleId) {
+export async function requestAfterShareCreation(node, ruleId, listApprovers) {
 	const fileId = node.fileid
 	const fileName = node.basename
 	const req = {
 		createShares: false,
+		listApprovers,
 	}
 	const url = generateOcsUrl('apps/approval/api/v1/request/{fileId}/{ruleId}', { fileId, ruleId })
 	try {
@@ -69,7 +80,7 @@ export async function requestAfterShareCreation(node, ruleId) {
 		if (response.data?.ocs?.data?.warning) {
 			showWarning(t('approval', 'Warning') + ': ' + response.data.ocs.data.warning)
 		}
-		await updateNodeApprovalState(node)
+		await updateNodeApprovalState(node, 1)
 		// TODO
 		// reloadTags()
 	} catch (error) {

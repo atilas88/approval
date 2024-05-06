@@ -250,6 +250,7 @@ export default {
 							entityId: u.entityId,
 						}
 					}),
+					set_user_approvers: rule.set_user_approvers,
 				}
 				const url = generateUrl('/apps/approval/rule/' + id)
 				axios.put(url, req).then((response) => {
@@ -275,6 +276,7 @@ export default {
 				description: '',
 				approvers: [],
 				requesters: [],
+				set_user_approvers: false,
 			}
 		},
 		onNewRuleDelete() {
@@ -302,6 +304,7 @@ export default {
 							entityId: u.entityId,
 						}
 					}),
+					set_user_approvers: rule.set_user_approvers,
 				}
 				const url = generateUrl('/apps/approval/rule')
 				axios.post(url, req).then((response) => {

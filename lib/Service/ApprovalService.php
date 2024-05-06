@@ -34,6 +34,7 @@ use Psr\Log\LoggerInterface;
 use Sabre\DAV\INode;
 use Sabre\DAV\PropFind;
 
+
 class ApprovalService {
 
 	public function __construct(
@@ -50,7 +51,7 @@ class ApprovalService {
 		private IShareManager $shareManager,
 		private IL10N $l10n,
 		private LoggerInterface $logger,
-		private ?string $userId) {
+		private ?string $userId,) {
 	}
 
 	/**
@@ -285,8 +286,18 @@ class ApprovalService {
 		// first check if it's approvable
 		foreach ($rules as $id => $rule) {
 			try {
+
+				$isAuthorized = false;
+				if($rule['set_user_approvers'])
+				{
+					//Just ignore check if user has authorized
+					$isAuthorized = true;
+				}
+				else {
+					$isAuthorized = $this->userIsAuthorizedByRule($userId, $rule, 'approvers');
+				}
 				if ($this->tagObjectMapper->haveTag((string) $fileId, 'files', $rule['tagPending'])
-					&& $this->userIsAuthorizedByRule($userId, $rule, 'approvers')) {
+					&& $isAuthorized) {
 					return [
 						'state' => Application::STATE_APPROVABLE,
 						'rule' => $rule,
@@ -350,8 +361,17 @@ class ApprovalService {
 			$rules = $this->ruleService->getRules();
 			foreach ($rules as $ruleId => $rule) {
 				try {
+					$isAuthorized = false;
+					if($rule['set_user_approvers'])
+					{
+						//Just ignore check if user has authorized
+						$isAuthorized = true;
+					}
+					else {
+						$isAuthorized = $this->userIsAuthorizedByRule($userId, $rule, 'approvers');
+					}
 					if ($this->tagObjectMapper->haveTag((string) $fileId, 'files', $rule['tagPending'])
-						&& $this->userIsAuthorizedByRule($userId, $rule, 'approvers')) {
+						&& $isAuthorized) {
 						$this->tagObjectMapper->assignTags((string) $fileId, 'files', $rule['tagApproved']);
 						$this->tagObjectMapper->unassignTags((string) $fileId, 'files', $rule['tagPending']);
 
@@ -387,8 +407,17 @@ class ApprovalService {
 			$rules = $this->ruleService->getRules();
 			foreach ($rules as $ruleId => $rule) {
 				try {
+					$isAuthorized = false;
+					if($rule['set_user_approvers'])
+					{
+						//Just ignore check if user has authorized
+						$isAuthorized = true;
+					}
+					else {
+						$isAuthorized = $this->userIsAuthorizedByRule($userId, $rule, 'approvers');
+					}
 					if ($this->tagObjectMapper->haveTag((string) $fileId, 'files', $rule['tagPending'])
-						&& $this->userIsAuthorizedByRule($userId, $rule, 'approvers')) {
+						&& $isAuthorized) {
 						$this->tagObjectMapper->assignTags((string) $fileId, 'files', $rule['tagRejected']);
 						$this->tagObjectMapper->unassignTags((string) $fileId, 'files', $rule['tagPending']);
 
@@ -421,17 +450,25 @@ class ApprovalService {
 	 * @throws \OCP\Files\NotPermittedException
 	 * @throws \OC\User\NoUserException
 	 */
-	public function request(int $fileId, int $ruleId, ?string $userId, bool $createShares): array {
+	public function request(int $fileId, int $ruleId, ?string $userId, bool $createShares, array $listApprovers = []): array {
 		$rule = $this->ruleService->getRule($ruleId);
 		if (is_null($rule)) {
 			return ['error' => $this->l10n->t('Rule does not exist')];
 		}
+		$isUserAuthorized = false;
+		// Update rule with new approvers
+		if(count($listApprovers) > 0 && $rule['set_user_approvers']) {
+			$isUserAuthorized = true;			
+		}
+		else {
+			$isUserAuthorized = $this->userIsAuthorizedByRule($userId, $rule, 'requesters');
+		}
 
-		if ($this->userIsAuthorizedByRule($userId, $rule, 'requesters')) {
+		if ($isUserAuthorized) {
 			// only request if it has not yet been requested for this rule
 			if (!$this->tagObjectMapper->haveTag((string) $fileId, 'files', $rule['tagPending'])) {
 				if ($createShares) {
-					$this->shareWithApprovers($fileId, $rule, $userId);
+					$this->shareWithApprovers($fileId, $rule, $userId, $listApprovers);
 					// if shares are auto created, request is actually done in a separated request with $createShares === false
 					return [];
 				}
@@ -448,7 +485,7 @@ class ApprovalService {
 				);
 
 				// check if someone can actually approve
-				$ruleUserIds = $this->getRuleAuthorizedUserIds($rule, 'approvers');
+				$ruleUserIds = $this->getRuleAuthorizedUserIds($rule, 'approvers', $listApprovers);
 				foreach ($ruleUserIds as $uid) {
 					if ($this->utilsService->userHasAccessTo($fileId, $uid)) {
 						return [];
@@ -500,11 +537,12 @@ class ApprovalService {
 	 * @param int $fileId
 	 * @param array $rule
 	 * @param string $userId
+	 * @param array $listApprovers (optional)
 	 * @return array list of created shares
 	 * @throws \OCP\Files\NotPermittedException
 	 * @throws \OC\User\NoUserException
 	 */
-	private function shareWithApprovers(int $fileId, array $rule, string $userId): array {
+	private function shareWithApprovers(int $fileId, array $rule, string $userId, array $listApprovers =[]): array {
 		$createdShares = [];
 		// get node
 		$userFolder = $this->root->getUserFolder($userId);
@@ -524,7 +562,16 @@ class ApprovalService {
 		$label = $this->l10n->t('Please check my approval request');
 		$fileOwner = $node->getOwner()->getUID();
 
-		foreach ($rule['approvers'] as $approver) {
+		$approvers = [];
+		if(count($listApprovers) > 0) {
+			$approvers = $listApprovers;
+		}
+		else
+		{
+			$approvers = $rule['approvers'];
+		}
+
+		foreach ($approvers as $approver) {
 			if ($approver['type'] === 'user' && !$this->utilsService->userHasAccessTo($fileId, $approver['entityId'])) {
 				// create user share
 				if ($this->utilsService->createShare($node, IShare::TYPE_USER, $approver['entityId'], $fileOwner, $label)) {
@@ -533,7 +580,7 @@ class ApprovalService {
 			}
 		}
 		if ($this->shareManager->allowGroupSharing()) {
-			foreach ($rule['approvers'] as $approver) {
+			foreach ($approvers as $approver) {
 				if ($approver['type'] === 'group') {
 					if ($this->utilsService->createShare($node, IShare::TYPE_GROUP, $approver['entityId'], $fileOwner, $label)) {
 						$createdShares[] = $approver;
@@ -544,7 +591,7 @@ class ApprovalService {
 
 		$circlesEnabled = $this->appManager->isEnabledForUser('circles') && class_exists(\OCA\Circles\CirclesManager::class);
 		if ($circlesEnabled) {
-			foreach ($rule['approvers'] as $approver) {
+			foreach ($approvers as $approver) {
 				if ($approver['type'] === 'circle') {
 					if ($this->utilsService->createShare($node, IShare::TYPE_CIRCLE, $approver['entityId'], $fileOwner, $label)) {
 						$createdShares[] = $approver;
@@ -610,17 +657,27 @@ class ApprovalService {
 	 *
 	 * @param array $rule
 	 * @param string $role
+	 * @param array $listApprovers
 	 * @return array userId list
 	 */
-	public function getRuleAuthorizedUserIds(array $rule, string $role = 'approvers'): array {
+	public function getRuleAuthorizedUserIds(array $rule, string $role = 'approvers', array $listApprovers = []): array {
 		$circlesEnabled = $this->appManager->isEnabledForUser('circles') && class_exists(\OCA\Circles\CirclesManager::class);
 		if ($circlesEnabled) {
 			$circlesManager = \OC::$server->get(\OCA\Circles\CirclesManager::class);
 			$circlesManager->startSuperSession();
 		}
 
+		$approvers = [];
+		if(count($listApprovers) > 0) {
+			$approvers = $listApprovers;
+		}
+		else
+		{
+			$approvers = $rule[$role];
+		}
+
 		$ruleUserIds = [];
-		foreach ($rule[$role] as $approver) {
+		foreach ($approvers as $approver) {
 			if ($approver['type'] === 'user') {
 				if (!in_array($approver['entityId'], $ruleUserIds)) {
 					$ruleUserIds[] = $approver['entityId'];

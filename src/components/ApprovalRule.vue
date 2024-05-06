@@ -45,6 +45,13 @@
 						@update:value="update('requesters', $event)" />
 				</div>
 			</div>
+			<div class="field-label">
+				<input id="custom_search"
+					:checked="value.set_user_approvers"
+					type="checkbox"
+					@input="onCheckedInput">
+				<label for="custom_search">{{ userCanSelectLabel }}</label>
+			</div>
 			<div class="users">
 				<span class="field-label">
 					<GroupIcon :size="16" class="icon color-success" />
@@ -147,6 +154,7 @@ export default {
 			rejectedLabel: t('approval', 'Tag set on rejection'),
 			descriptionLabel: t('approval', 'Workflow title'),
 			descriptionPlaceholder: t('approval', 'What is the purpose of this workflow?'),
+			userCanSelectLabel: t('approval', 'Users can select who can approve'),
 		}
 	},
 
@@ -171,9 +179,14 @@ export default {
 				this.update('description', e.target.value)
 			}, 2000)()
 		},
+		onCheckedInput(e) {
+			delay(() => {
+				this.update('set_user_approvers', e.target.checked)
+			}, 1000)()
+		},
 		update(key, value) {
 			console.debug('update', key, value)
-			if (value) {
+			if (value !== null && value !== undefined) {
 				const backupRule = {
 					...this.value,
 					approvers: this.value.approvers.map(e => e),
